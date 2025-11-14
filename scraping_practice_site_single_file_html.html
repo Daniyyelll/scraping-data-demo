@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mini Directory – Scraping Practice</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #121832;
+      --muted: #9fb0ff;
+      --text: #e9edff;
+      --accent: #6ea8fe;
+      --good: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      color: var(--text); background: linear-gradient(180deg, #0b1020, #0a0f1c 60%, #070b16);
+    }
+    header {
+      padding: 32px 16px; text-align: center; border-bottom: 1px solid #1c254b;
+      background: radial-gradient(1200px 600px at 50% -20%, rgba(110,168,254,.15), transparent 60%);
+    }
+    h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: .3px; }
+    p { margin: 8px 0; color: #c8d1ff; }
+    .container { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+
+    .panel { background: var(--card); border: 1px solid #1b254a; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .search { display: grid; gap: 12px; grid-template-columns: 1fr auto; padding: 16px; align-items: center; }
+    label { font-size: 13px; color: var(--muted); }
+    input[type="text"] { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid #24305f; background: #0f1533; color: var(--text); }
+    button { padding: 12px 16px; border: 1px solid #2a3a7a; border-radius: 12px; background: #162255; color: var(--text); cursor: pointer; font-weight: 600; }
+    button:hover { background: #1a2a6a; }
+
+    .result { padding: 8px 16px 16px; border-top: 1px dashed #223064; }
+    .result.hidden { display: none; }
+    .result h2 { font-size: 18px; margin: 10px 0 6px; }
+    .kv { width: 100%; border-collapse: collapse; }
+    .kv th, .kv td { padding: 10px 12px; border-bottom: 1px solid #1b254a; text-align: left; font-size: 14px; }
+    .kv th { width: 180px; color: var(--muted); font-weight: 600; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; padding: 16px; }
+    .card { border: 1px solid #1b254a; border-radius: 14px; background: #0e1533; padding: 14px; }
+    .id { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: var(--accent); font-size: 13px; }
+    .name { font-weight: 700; font-size: 16px; }
+    .meta { font-size: 13px; color: #c9d2ff; margin-top: 6px; }
+    .copy { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+    .toolbar { display:flex; gap:8px; align-items:center; padding: 0 16px 16px; }
+    .toolbar input[type="search"] { flex:1; padding:10px 12px; border-radius: 10px; border:1px solid #233063; background:#0f1636; color:var(--text); }
+    .toolbar .info { font-size: 12px; color: var(--muted); }
+
+    footer { text-align:center; font-size: 12px; color: var(--muted); padding: 24px; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#11205a; border:1px solid #24306b; font-size:11px; }
+    .notice { padding: 12px 16px; color:#dbe4ff; background:#0f1636; border:1px dashed #2a3673; border-radius:12px; margin:16px; }
+    code { background:#0f1636; border:1px solid #242e63; padding:2px 6px; border-radius:6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Mini Directory <span class="pill" aria-label="static dataset">for scraping practice</span></h1>
+    <p>Enter a user <strong>ID</strong> to fetch contact info, or scroll to scrape the full directory below.</p>
+  </header>
+
+  <main class="container">
+    <section class="panel" aria-labelledby="search-title">
+      <div class="search">
+        <div>
+          <label id="search-title" for="id-input">User ID (e.g., <code>U1003</code>)</label>
+          <input id="id-input" name="user-id" type="text" placeholder="Type an ID like U1001 …" autocomplete="off" />
+        </div>
+        <div>
+          <button id="lookup-btn" type="button" title="Lookup by ID">Lookup</button>
+        </div>
+      </div>
+      <div id="result" class="result hidden" aria-live="polite">
+        <h2 id="result-title">Result</h2>
+        <table class="kv" id="contact-table" data-entity="contact">
+          <tbody>
+            <tr><th scope="row">ID</th><td class="value" data-field="id"></td></tr>
+            <tr><th scope="row">Name</th><td class="value" data-field="name"></td></tr>
+            <tr><th scope="row">Email</th><td class="value" data-field="email"></td></tr>
+            <tr><th scope="row">Phone</th><td class="value" data-field="phone"></td></tr>
+            <tr><th scope="row">Company</th><td class="value" data-field="company"></td></tr>
+            <tr><th scope="row">Address</th><td class="value" data-field="address"></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="notice">
+      <strong>Scraping tips:</strong> Each profile card below uses stable CSS classes and <code>data-*</code> attributes (e.g., <code>data-id</code>, <code>data-email</code>). You can also scrape the lookup result table via <code>#contact-table</code>.
+    </div>
+<!-- 
+    <section class="panel" aria-labelledby="dir-title">
+      <div class="toolbar">
+        <input id="q" type="search" placeholder="Filter by name, company, or email…" />
+        <span class="info" id="count"></span>
+      </div>
+      <div id="grid" class="grid" aria-live="polite"></div>
+    </section> -->
+
+    <footer>
+      Demo dataset generated for practice. No real people. Use responsibly. ♥
+    </footer>
+  </main>
+
+  <!-- Embedded dataset (could also be replaced with a real API) -->
+  <script id="people-data" type="application/json">
+    {
+      "people": [
+        {"id":"U1001","name":"Noura Hassan","email":"noura.hassan@example.com","phone":"+12 34 5678 9123","company":"Delta Analytics","address":"12 Some Address, Location"},
+        {"id":"U1002","name":"Omar Farouk","email":"omar.farouk@example.com","phone":"+12 34 5678 9123","company":"Cairo Tech Labs","address":"12 Some Address, Location"},
+        {"id":"U1003","name":"Mariam Youssef","email":"mariam.youssef@example.com","phone":"+12 34 5678 9123","company":"Sphinx Solutions","address":"12 Some Address, Location"},
+        {"id":"U1004","name":"Ahmed Salah","email":"ahmed.salah@example.com","phone":"+12 34 5678 9123","company":"Lotus Fintech","address":"12 Some Address, Location"},
+        {"id":"U1005","name":"Laila Samir","email":"laila.samir@example.com","phone":"+12 34 5678 9123","company":"Desert Bloom Co.","address":"12 Some Address, Location"},
+        {"id":"U1006","name":"Karim Nabil","email":"karim.nabil@example.com","phone":"+12 34 5678 9123","company":"Pyramids Retail","address":"12 Some Address, Location"},
+        {"id":"U1007","name":"Sara El-Shazly","email":"sara.shazly@example.com","phone":"+12 34 5678 9123","company":"Blue Nile Media","address":"12 Some Address, Location"},
+        {"id":"U1008","name":"Hani Ali","email":"hani.ali@example.com","phone":"+12 34 5678 9123","company":"Sinai Logistics","address":"12 Some Address, Location"},
+        {"id":"U1009","name":"Dina Fathi","email":"dina.fathi@example.com","phone":"+12 34 5678 9123","company":"Red Sea Travel","address":"12 Some Address, Location"},
+        {"id":"U1010","name":"Youssef Zaki","email":"youssef.zaki@example.com","phone":"+12 34 5678 9123","company":"Cairo Cloud","address":"12 Some Address, Location"},
+        {"id":"U1011","name":"Habiba Adel","email":"habiba.adel@example.com","phone":"+12 34 5678 9123","company":"Nile Health","address":"12 Some Address, Location"},
+        {"id":"U1012","name":"Mostafa Reda","email":"mostafa.reda@example.com","phone":"+12 34 5678 9123","company":"Green Fields","address":"12 Some Address, Location"},
+        {"id":"U1013","name":"Farida Emad","email":"farida.emad@example.com","phone":"+12 34 5678 9123","company":"Delta Analytics","address":"12 Some Address, Location"},
+        {"id":"U1014","name":"Hossam Tarek","email":"hossam.tarek@example.com","phone":"+12 34 5678 9123","company":"Cairo Tech Labs","address":"12 Some Address, Location"},
+        {"id":"U1015","name":"Nadine Lotfy","email":"nadine.lotfy@example.com","phone":"+12 34 5678 9123","company":"Sphinx Solutions","address":"12 Some Address, Location"},
+        {"id":"U1016","name":"Rami Gamal","email":"rami.gamal@example.com","phone":"+12 34 5678 9123","company":"Lotus Fintech","address":"12 Some Address, Location"},
+        {"id":"U1017","name":"Jude Maher","email":"jude.maher@example.com","phone":"+12 34 5678 9123","company":"Blue Nile Media","address":"12 Some Address, Location"},
+        {"id":"U1018","name":"Tarek Nour","email":"tarek.nour@example.com","phone":"+12 34 5678 9123","company":"Sinai Logistics","address":"12 Some Address, Location"},
+        {"id":"U1019","name":"Heba Sabry","email":"heba.sabry@example.com","phone":"+12 34 5678 9123","company":"Red Sea Travel","address":"12 Some Address, Location"},
+        {"id":"U1020","name":"Bassam Adel","email":"bassam.adel@example.com","phone":"+12 34 5678 9123","company":"Cairo Cloud","address":"12 Some Address, Location"}
+      ]
+    }
+  </script>
+
+  <script>
+    /** Utility to get dataset **/
+    function loadPeople() {
+      const raw = document.getElementById('people-data').textContent.trim();
+      const data = JSON.parse(raw);
+      return data.people;
+    }
+
+    const PEOPLE = loadPeople();
+
+    /** Lookup by ID (simulates an API call with a small delay) **/
+    async function lookupById(id) {
+      await new Promise(r => setTimeout(r, 250)); // simulate latency
+      return PEOPLE.find(p => p.id.toLowerCase() === String(id).trim().toLowerCase()) || null;
+    }
+
+    /** Render result table **/
+    function renderResult(person) {
+      const box = document.getElementById('result');
+      if (!person) {
+        box.classList.remove('hidden');
+        document.getElementById('result-title').textContent = 'No match found';
+        document.querySelectorAll('#contact-table .value').forEach(td => td.textContent = '—');
+        return;
+      }
+      document.getElementById('result-title').textContent = `${person.name} — Contact Info`;
+      for (const [k, v] of Object.entries(person)) {
+        const cell = document.querySelector(`#contact-table [data-field="${k}"]`);
+        if (cell) cell.textContent = v;
+      }
+      box.classList.remove('hidden');
+    }
+
+    /** Directory grid rendering with data-* attributes useful for scraping **/
+    function makeCard(p) {
+      const div = document.createElement('article');
+      div.className = 'card';
+      div.setAttribute('data-id', p.id);
+      div.setAttribute('data-email', p.email);
+      div.setAttribute('data-phone', p.phone);
+      div.setAttribute('data-company', p.company);
+      div.setAttribute('data-address', p.address);
+
+      div.innerHTML = `
+        <div class="id">${p.id}</div>
+        <div class="name">${p.name}</div>
+        <div class="meta">
+          <div class="email"><strong>Email:</strong> <a href="mailto:${p.email}">${p.email}</a></div>
+          <div class="phone"><strong>Phone:</strong> <a href="tel:${p.phone.replace(/\s+/g,'')}">${p.phone}</a></div>
+          <div class="company"><strong>Company:</strong> ${p.company}</div>
+          <div class="address"><strong>Address:</strong> ${p.address}</div>
+        </div>
+        <div class="copy">CSS hooks: <code>.card .name</code>, <code>.card .email a</code>, <code>[data-id]</code>, <code>[data-company]</code></div>
+      `;
+      return div;
+    }
+
+    function renderGrid(items) {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      items.forEach(p => grid.appendChild(makeCard(p)));
+      document.getElementById('count').textContent = `${items.length} result(s)`;
+    }
+
+    /** Simple text filter **/
+    function filterPeople(q) {
+      q = q.toLowerCase();
+      return PEOPLE.filter(p => (
+        p.id.toLowerCase().includes(q) ||
+        p.name.toLowerCase().includes(q) ||
+        p.email.toLowerCase().includes(q) ||
+        p.company.toLowerCase().includes(q)
+      ));
+    }
+
+    /** Wire up interactions **/
+    document.getElementById('lookup-btn').addEventListener('click', async () => {
+      const id = document.getElementById('id-input').value;
+      const person = await lookupById(id);
+      renderResult(person);
+    });
+
+    document.getElementById('id-input').addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        const person = await lookupById(e.target.value);
+        renderResult(person);
+      }
+    });
+
+    document.getElementById('q').addEventListener('input', (e) => {
+      const q = e.target.value;
+      renderGrid(q ? filterPeople(q) : PEOPLE);
+    });
+
+    // Initial render
+    renderGrid(PEOPLE);
+  </script>
+</body>
+</html>
